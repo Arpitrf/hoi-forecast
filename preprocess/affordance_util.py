@@ -199,7 +199,9 @@ def compute_obj_affordance(frame, annot, active_obj, active_obj_idx, homography,
         if object_idx == active_obj_idx:
             active_hand = annot.hands[hand_idx]
             affordance_info[active_hand.side.name] = np.array(active_hand.bbox.coords_int).reshape(-1)
+            # Q. What are these cmap_points and select_points?
             cmap_points = compute_affordance(frame, active_hand, active_obj, num_points=num_points, num_sampling=num_sampling)
+            print("cmap_points: ", cmap_points)
             if select_points is None and (cmap_points is not None and cmap_points.shape[0] > 0):
                 select_points = cmap_points
             elif select_points is not None and (cmap_points is not None and cmap_points.shape[0] > 0):
@@ -207,7 +209,9 @@ def compute_obj_affordance(frame, annot, active_obj, active_obj_idx, homography,
     if select_points is None:
         print("affordance contact points filtered out")
         return None
+    print("len(select_points): ", len(select_points))
     select_points_homo = get_points_homo(select_points, homography, active_obj_traj, obj_bboxs_traj)
+    print("len(select_points_homo): ", len(select_points_homo))
     if len(select_points_homo) == 0:
         print("affordance contact points filtered out")
         return None

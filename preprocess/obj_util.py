@@ -4,6 +4,7 @@ from preprocess.dataset_util import bbox_inter, HandState, compute_iou, \
 from preprocess.traj_util import get_homo_point, get_homo_bbox_point
 
 
+# TODO: Both hands can also be active I guess?
 def find_active_side(annots, hand_sides, hand_threshold=0.1, obj_threshold=0.1):
     if len(hand_sides) == 1:
         return hand_sides[0]
@@ -13,18 +14,23 @@ def find_active_side(annots, hand_sides, hand_threshold=0.1, obj_threshold=0.1):
             hands = [hand for hand in annot.hands if hand.score >= hand_threshold]
             objs = [obj for obj in annot.objects if obj.score >= obj_threshold]
             if len(hands) > 0 and len(objs) > 0:
+                # obtain the hand and the object that probably the hand is interacting with
                 hand_object_idx_correspondences = annot.get_hand_object_interactions(object_threshold=obj_threshold,
                                                                                      hand_threshold=hand_threshold)
                 for hand_idx, object_idx in hand_object_idx_correspondences.items():
                     hand_bbox = np.array(annot.hands[hand_idx].bbox.coords_int).reshape(-1)
                     obj_bbox = np.array(annot.objects[object_idx].bbox.coords_int).reshape(-1)
                     xA, yA, xB, yB, iou = bbox_inter(hand_bbox, obj_bbox)
+                    # if the hand and the corresponding object has a bbox overlap, the correspondign frame adds to the "activeness" of the hand   
                     if iou > 0:
                         hand_side = annot.hands[hand_idx].side.name
+                        # print("annot.hands[hand_idx].state.value: ", hand_side, annot.hands[hand_idx].state.value)
                         if annot.hands[hand_idx].state.value == HandState.PORTABLE_OBJECT.value:
                             hand_counter[hand_side] += 1
                         elif annot.hands[hand_idx].state.value == HandState.STATIONARY_OBJECT.value:
                             hand_counter[hand_side] += 0.5
+                # print("----------")
+        # print("hand_counter: ", hand_counter)
         if hand_counter["LEFT"] == hand_counter["RIGHT"]:
             return "RIGHT"
         else:
@@ -86,6 +92,7 @@ def find_active_obj_iou(objs, bbox):
     return active_obj, max_iou
 
 
+# TODO: Both hands can also be active I guess? So, incorporate that
 def traj_compute(annots, hand_sides, homography_stack, hand_threshold=0.1, obj_threshold=0.1):
     annot = annots[-1]
     obj_traj = []
@@ -94,14 +101,17 @@ def traj_compute(annots, hand_sides, homography_stack, hand_threshold=0.1, obj_t
     obj_bboxs_traj = []
     active_hand_side = find_active_side(annots, hand_sides, hand_threshold=hand_threshold,
                                         obj_threshold=obj_threshold)
+    print("active_hand_side: ", active_hand_side)
     active_obj, active_object_idx, active_hand, active_hand_idx = find_active_obj_side(annot,
                                                                                        hand_side=active_hand_side,
                                                                                        return_hand=True, return_idx=True,
                                                                                        hand_threshold=hand_threshold,
                                                                                        obj_threshold=obj_threshold)
+    print("active_obj: ", active_obj, active_object_idx, active_hand, active_hand_idx)
     contact_state = active_hand.state.value
     contacts = compute_contact(annots, active_hand_side, contact_state,
                                hand_threshold=hand_threshold)
+    print("contacts: ", contacts)
     obj_center = active_obj.bbox.center
     obj_centers.append(obj_center)
     obj_point = get_homo_point(obj_center, homography_stack[-1])
@@ -168,6 +178,12 @@ def traj_compute(annots, hand_sides, homography_stack, hand_threshold=0.1, obj_t
     obj_traj.reverse()
     obj_centers.reverse()
     obj_bboxs_traj.reverse()
+    # print("---",  np.array(obj_traj).shape, np.array(obj_centers).shape, np.array(obj_bboxs).shape
+    # , np.array(contacts).shape
+    # , active_obj
+    # , np.array(active_object_idx).shape
+    # , np.array(obj_bboxs_traj).shape
+    # )
     return obj_traj, obj_centers, obj_bboxs, contacts, active_obj, active_object_idx, obj_bboxs_traj
 
 

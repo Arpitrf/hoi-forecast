@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 from preprocess.dataset_util import get_mask, valid_traj
+import matplotlib.pyplot as plt
 
 
 def match_keypoints(kpsA, kpsB, featuresA, featuresB, ratio=0.7, reprojThresh=4.0):
@@ -26,11 +27,20 @@ def get_pair_homography(frame_1, frame_2, annot_1, annot_2, hand_threshold=0.1, 
     descriptor = cv2.xfeatures2d.SURF_create()
     msk_img_1 = get_mask(frame_1, annot_1, hand_threshold=hand_threshold, obj_threshold=obj_threshold)
     msk_img_2 = get_mask(frame_2, annot_2, hand_threshold=hand_threshold, obj_threshold=obj_threshold)
+    # fig, ax = plt.subplots(2,2)
+    # ax[0,0].imshow(frame_1)
+    # ax[0,1].imshow(msk_img_1)
+    # ax[1,0].imshow(frame_2)
+    # ax[1,1].imshow(msk_img_2)
+    # plt.show()
     (kpsA, featuresA) = descriptor.detectAndCompute(frame_1, mask=msk_img_1)
     (kpsB, featuresB) = descriptor.detectAndCompute(frame_2, mask=msk_img_2)
+    # print("kpsA, featuresA: ", np.array(kpsA).shape, np.array(featuresA).shape)
+    # print("kpsA, featuresA: ", np.array(kpsB).shape, np.array(featuresB).shape)
     matches, matchesMask = None, None
     try:
         (matches, H_BA, matchesMask) = match_keypoints(kpsB, kpsA, featuresB, featuresA)
+        # print("Homography stats: ", np.array(matches).shape, H_BA)
     except Exception:
         print("compute homography failed!")
         H_BA = np.array([1.0, 0, 0, 0, 1.0, 0, 0, 0, 1.0]).reshape(3, 3)
@@ -99,12 +109,15 @@ def traj_compute(frames, annots, hand_sides, hand_threshold=0.1, obj_threshold=0
                                                                annots[idx - 1], annots[idx],
                                                                hand_threshold=hand_threshold,
                                                                obj_threshold=obj_threshold)
+        # print("idx, H_BA: ", idx, H_BA)
         if not flag:
             return None
         else:
             homography_stack.append(np.dot(homography_stack[-1], H_BA))
+    print("homography_stack: ", np.array(homography_stack).shape)
     for idx in range(len(frames)):
         hands_center = get_hand_center(annots[idx], hand_threshold=hand_threshold)
+        print("hands_center: ", hands_center)
         if "LEFT" in hand_sides:
             left_center, left_point = get_hand_point(hands_center, homography_stack[idx], "LEFT")
             left_centers.append(left_center)
@@ -114,8 +127,12 @@ def traj_compute(frames, annots, hand_sides, hand_threshold=0.1, obj_threshold=0
             right_centers.append(right_center)
             right_traj.append(right_point)
 
+    print("Before left_traj, right_traj: ", left_traj, right_traj)
+    # Some trajectories are being filtered out here!!
     left_traj = valid_traj(left_traj, imgW=imgW, imgH=imgH)
     right_traj = valid_traj(right_traj, imgW=imgW, imgH=imgH)
+    print("left_traj, right_traj: ", left_traj, right_traj)
+    # print("---------------", np.array(homography_stack).shape)
     return left_traj, left_centers, right_traj, right_centers, homography_stack
 
 
@@ -183,4 +200,4 @@ def compute_hand_traj(frames, annots, hand_sides, hand_threshold=0.1, obj_thresh
                                                                                    imgW=imgW, imgH=imgH)
             hand_trajs["RIGHT"] = {"traj": right_complete_traj, "fill_indices": right_fill_indices,
                                    "fit_curve": right_curve, "centers": right_centers}
-            return homography_stack, hand_trajs
+        return homography_stack, hand_trajs

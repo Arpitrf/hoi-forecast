@@ -44,24 +44,29 @@ def vis_traj(frame_vis, traj, fill_indices=None, side=None, circle_radis=4, circ
                         i += 1
     return frame_vis
 
-
+    
 def vis_hand_traj(frames, hand_trajs):
     frame_vis = frames[0].copy()
-    for side in hand_trajs:
-        meta = hand_trajs[side]
-        traj, fill_indices = meta["traj"], meta["fill_indices"]
-        frame_vis = vis_traj(frame_vis, traj, fill_indices, side)
+    # for side in hand_trajs:
+    #     meta = hand_trajs[side]
+    #     traj, fill_indices = meta["traj"], meta["fill_indices"]
+    #     frame_vis = vis_traj(frame_vis, traj, fill_indices, side)
     return frame_vis
 
 
 def vis_affordance(frame, affordance_info):
+    temp = affordance_info["select_points"]
     select_points = affordance_info["select_points_homo"]
-    hmap = compute_heatmap(select_points, (frame.shape[1], frame.shape[0]))
-    hmap = (hmap * 255).astype(np.uint8)
-    hmap = cv2.applyColorMap(hmap, colormap=cv2.COLORMAP_JET)
+    # hmap = compute_heatmap(select_points, (frame.shape[1], frame.shape[0]))
+    # hmap = (hmap * 255).astype(np.uint8)
+    # hmap = cv2.applyColorMap(hmap, colormap=cv2.COLORMAP_JET)
     for idx in range((len(select_points))):
         point = select_points[idx].astype(np.int)
+        temp_point = temp[idx].astype(np.int)
         frame_vis = cv2.circle(frame, (point[0], point[1]), radius=2, color=(255, 0, 255),
                                thickness=-1)
-    overlay = (0.7 * frame + 0.3 * hmap).astype(np.uint8)
+        frame_vis = cv2.circle(frame, (temp_point[0], temp_point[1]), radius=1, color=(0, 0, 255),
+                               thickness=-1)
+    overlay = frame.astype(np.uint8)
+    # overlay = (0.7 * frame + 0.3 * hmap).astype(np.uint8)
     return overlay
