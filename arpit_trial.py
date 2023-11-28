@@ -24,30 +24,48 @@ from hoa.io import load_detections
 #     def __getitem__(self, idx: int) -> PIL.Image.Image:
 #         return PIL.Image.open(str(self.path / self.frame_template.format(idx + 1)))
 
+def create_output_video(frames_path, start_frame, end_frame, const_img, save_path):
+    height, width, layers = const_img.shape
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    output_video_file = save_path + '/output_video.mp4'
+    output_video = cv2.VideoWriter(output_video_file, fourcc, 30, (2 * width, height))
+    for frame_idx in range(start_frame, end_frame):  # Adjust the range as per the number of images you have
+        frame = cv2.imread(os.path.join(frames_path, "frame_{:010d}.jpg".format(frame_idx)))
+        
+        # Concatenate the first image and the current image side-by-side
+        concatenated_image = cv2.hconcat([const_img, frame])
+        
+        # Write the concatenated frame to the output video
+        output_video.write(concatenated_image)
 
 save_path = 'arpit_output'
 # os.makedirs(, exist_ok=True)
 
-participant_id = 'P02'
-video_id = 'P02_102'
+participant_id = 'P03'
+video_id = 'P03_101'
 frames_path = os.path.join('/home/arpit/EPIC-KITCHENS', participant_id, "rgb_frames", video_id + "/")
 ho_path = os.path.join('/home/arpit/EPIC-KITCHENS', participant_id, "hand-objects", "{}.pkl".format(video_id))
-# start_act_frame = 1280
-# frames_idxs = sample_action_anticipation_frames(start_act_frame, fps=30)
-# frames_idxs = [1280, 1290, 1300, 1310, 1320, 1330, 1340, 1350, 1360, 1370]
-# open ziplock
-# frames_idxs = [32360, 32370, 32380, 32390, 32400]
-# spread butter
-# frames_idxs = [31437, 31442, 31447, 31452, 31457, 31462, 31467, 31472, 31477]
-frames_idxs = np.arange(263, 302, 5, dtype=int).tolist()
-print("frames_idxs: ", frames_idxs)
+# P02_102
+# start_frame, end_frame = 5598, 5684
+# start_frame, end_frame = 6392, 6590
+# start_frame, end_frame = 8167, 8253
+# start_frame, end_frame = 8478, 8564
+# P03_101
+# start_frame, end_frame = 5219, 5260
+# start_frame, end_frame = 32394, 32492
+# start_frame, end_frame = 32752, 33014
+# start_frame, end_frame = 7067, 7627
+start_frame, end_frame = 6475, 6862
+
+frames_idxs = np.arange(start_frame, end_frame, 5, dtype=int).tolist()
+print("Total frames: ", len(frames_idxs))
 
 # detections = load_detections('detections/P01_101.pkl')
 # frames = LazyFrameLoader('frames/P01_101')
 
 with open(ho_path, "rb") as f:
     video_detections = [FrameDetections.from_protobuf_str(s) for s in pickle.load(f)]
-print("ho_detections: ", len(video_detections))
+# print("ho_detections: ", len(video_detections))
 results = fetch_data(frames_path, video_detections, frames_idxs)
 
 if results is None:
@@ -55,12 +73,12 @@ if results is None:
 else:
     frames_idxs, frames, annots, hand_sides = results
 
-    print("frames_idxs, frames: ", frames_idxs, np.array(frames).shape, type(annots[0]), hand_sides)
+    # print("frames_idxs, frames: ", frames_idxs, np.array(frames).shape, type(annots[0]), hand_sides)
 
     # ----------- Vis ------------
     renderer = DetectionRenderer(hand_threshold=0.5, object_threshold=0.5)
     frame_idx = 0
-    print("---", annots[frame_idx].hands)
+    # print("---", annots[frame_idx].hands)
     # plt.imshow(frames[frame_idx])
     # plt.show()
     x = renderer.render_detections(PIL.Image.fromarray(frames[frame_idx]), annots[frame_idx])
@@ -79,6 +97,19 @@ else:
     # plt.show()
 
     results_hand = compute_hand_traj(frames, annots, hand_sides, hand_threshold=0.1, obj_threshold=0.1)
+    # just saving hand traj for now
+    if results_hand is None:
+        print("compute traj failed in main")  # homography fails or not enough points
+    else:
+        homography_stack, hand_trajs = results_hand
+        img_vis = vis_hand_traj(frames, hand_trajs)
+        # save image 
+        img = cv2.hconcat([img_vis, frames[-1]])
+        cv2.imwrite(os.path.join(save_path, "demo_{}.jpg".format(participant_id)), img)
+
+        # save video
+        img = create_output_video(frames_path, start_frame, end_frame, img_vis, save_path)
+
     if results_hand is None:
         print("compute traj failed in main")  # homography fails or not enough points
     else:
@@ -100,8 +131,12 @@ else:
             if affordance_info is not None:
                 img_vis = vis_hand_traj(frames, hand_trajs)
                 # img_vis = vis_hand_traj(frames, obj_trajs)
-                img_vis = vis_affordance(img_vis, affordance_info)
+                # img_vis = vis_affordance(img_vis, affordance_info)
                 img = cv2.hconcat([img_vis, frames[-1]])
                 cv2.imwrite(os.path.join(save_path, "demo_{}.jpg".format(participant_id)), img)
+
+                # concat image with GIF
+                img = create_output_video(frames_path, start_frame, end_frame, img_vis, save_path)
+
                 save_video_info(save_path, participant_id, frames_idxs, homography_stack, contacts, hand_trajs, obj_trajs, affordance_info)
     print(f"result stored at {save_path}")

@@ -117,7 +117,7 @@ def traj_compute(frames, annots, hand_sides, hand_threshold=0.1, obj_threshold=0
     print("homography_stack: ", np.array(homography_stack).shape)
     for idx in range(len(frames)):
         hands_center = get_hand_center(annots[idx], hand_threshold=hand_threshold)
-        print("hands_center: ", hands_center)
+        # print("hands_center: ", hands_center)
         if "LEFT" in hand_sides:
             left_center, left_point = get_hand_point(hands_center, homography_stack[idx], "LEFT")
             left_centers.append(left_center)
@@ -127,11 +127,11 @@ def traj_compute(frames, annots, hand_sides, hand_threshold=0.1, obj_threshold=0
             right_centers.append(right_center)
             right_traj.append(right_point)
 
-    print("Before left_traj, right_traj: ", left_traj, right_traj)
+    print("Before valid_traj: left_traj, right_traj: ", len(left_traj), len(right_traj))
     # Some trajectories are being filtered out here!!
     left_traj = valid_traj(left_traj, imgW=imgW, imgH=imgH)
     right_traj = valid_traj(right_traj, imgW=imgW, imgH=imgH)
-    print("left_traj, right_traj: ", left_traj, right_traj)
+    print("After valid_traj: left_traj, right_traj: ", len(left_traj), len(right_traj))
     # print("---------------", np.array(homography_stack).shape)
     return left_traj, left_centers, right_traj, right_centers, homography_stack
 
@@ -157,6 +157,7 @@ def traj_completion(traj, side, imgW=456, imgH=256):
         full_traj = curve(np.arange(len(traj), dtype=np.float32))
         return full_traj, curve
 
+    # print("INSIDE TRAJ_COMPLETION: ", np.array(traj).shape)
     fill_indices = [idx for idx, point in enumerate(traj) if point is not None]
     if 0 not in fill_indices:
         if side == "LEFT":
@@ -182,9 +183,10 @@ def compute_hand_traj(frames, annots, hand_sides, hand_threshold=0.1, obj_thresh
         return None
     else:
         left_traj, left_centers, right_traj, right_centers, homography_stack = results
-        if len(left_traj) == 0 and len(right_traj) == 0:
-            print("compute traj failed")
-            return None
+        print("lengths of left, right trajs: ", len(left_traj), len(right_traj))
+        # if len(left_traj) == 0 and len(right_traj) == 0:
+        #     print("compute traj failed")
+        #     return None
         hand_trajs = {}
         if len(left_traj) == 0:
             print("left traj filtered out")
@@ -200,4 +202,5 @@ def compute_hand_traj(frames, annots, hand_sides, hand_threshold=0.1, obj_thresh
                                                                                    imgW=imgW, imgH=imgH)
             hand_trajs["RIGHT"] = {"traj": right_complete_traj, "fill_indices": right_fill_indices,
                                    "fit_curve": right_curve, "centers": right_centers}
+        # print("homograhy_stack, hand_trajs: ", homography_stack, hand_trajs)
         return homography_stack, hand_trajs

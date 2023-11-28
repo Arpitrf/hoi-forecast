@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 from preprocess.affordance_util import compute_heatmap
+import os
 
 hand_rgb = {"LEFT": (0, 90, 181), "RIGHT": (220, 50, 32)}
 object_rgb = (255, 194, 10)
@@ -47,26 +48,36 @@ def vis_traj(frame_vis, traj, fill_indices=None, side=None, circle_radis=4, circ
     
 def vis_hand_traj(frames, hand_trajs):
     frame_vis = frames[0].copy()
-    # for side in hand_trajs:
-    #     meta = hand_trajs[side]
-    #     traj, fill_indices = meta["traj"], meta["fill_indices"]
-    #     frame_vis = vis_traj(frame_vis, traj, fill_indices, side)
+    for side in hand_trajs:
+        meta = hand_trajs[side]
+        traj, fill_indices = meta["traj"], meta["fill_indices"]
+        frame_vis = vis_traj(frame_vis, traj, fill_indices, side)
     return frame_vis
 
+def vis_obj_traj(frames, obj_trajs):
+    frame_vis = frames[0].copy()
+    traj, fill_indices = obj_trajs["traj"], obj_trajs["fill_indices"]
+    frame_vis = vis_traj(frame_vis, traj, fill_indices)
+    return frame_vis
 
-def vis_affordance(frame, affordance_info):
-    temp = affordance_info["select_points"]
-    select_points = affordance_info["select_points_homo"]
-    # hmap = compute_heatmap(select_points, (frame.shape[1], frame.shape[0]))
-    # hmap = (hmap * 255).astype(np.uint8)
-    # hmap = cv2.applyColorMap(hmap, colormap=cv2.COLORMAP_JET)
+def vis_affordance(frame, affordance_info, contact_frame=None):
+    select_points = affordance_info["select_points"]
+    select_points_homo = affordance_info["select_points_homo"]
+
+    frame_pts = contact_frame.copy()
     for idx in range((len(select_points))):
         point = select_points[idx].astype(np.int)
-        temp_point = temp[idx].astype(np.int)
-        frame_vis = cv2.circle(frame, (point[0], point[1]), radius=2, color=(255, 0, 255),
-                               thickness=-1)
-        frame_vis = cv2.circle(frame, (temp_point[0], temp_point[1]), radius=1, color=(0, 0, 255),
-                               thickness=-1)
-    overlay = frame.astype(np.uint8)
-    # overlay = (0.7 * frame + 0.3 * hmap).astype(np.uint8)
-    return overlay
+        frame_pts = cv2.circle(frame_pts, (point[0], point[1]), radius=2, color=(255, 0, 255), thickness=-1)
+    
+    frame_pts_homo = frame.copy()
+    for idx in range((len(select_points_homo))):
+        point = select_points_homo[idx].astype(np.int)
+        frame_pts_homo = cv2.circle(frame_pts_homo, (point[0], point[1]), radius=2, color=(255, 0, 255), thickness=-1)
+
+    hmap = compute_heatmap(select_points_homo, (frame.shape[1], frame.shape[0]))
+    hmap = (hmap * 255).astype(np.uint8)
+    hmap = cv2.applyColorMap(hmap, colormap=cv2.COLORMAP_JET)
+    print("hmap.shape: ", hmap.shape)
+    frame_hmap = (0.7 * frame + 0.3 * hmap).astype(np.uint8)
+
+    return frame_pts, frame_pts_homo, frame_hmap

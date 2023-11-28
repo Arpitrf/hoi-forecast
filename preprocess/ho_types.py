@@ -258,6 +258,9 @@ class FrameDetections:
 
     @staticmethod
     def from_protobuf(detections: pb.Detections) -> "FrameDetections":
+        # print("detections.frame_number: ", detections.frame_number)
+        # if detections.frame_number == 2188:
+            # print("####", [HandDetection.from_protobuf(pb) for pb in detections.hands])
         return FrameDetections(
             video_id=detections.video_id,
             frame_number=detections.frame_number,
@@ -287,12 +290,19 @@ class FrameDetections:
             A dictionary mapping hand detections to objects by indices
         """
         interactions = dict()
+        # interactions2 = dict()
         object_idxs = [
             i for i, obj in enumerate(self.objects) if obj.score >= object_threshold
         ]
+        # print("Length of object_idxs: ", len(object_idxs))
+        # fix by Arpit - if no object whose obj_score > th, then return empty dict
+        if len(object_idxs) == 0:
+            return {}
         object_centers = np.array(
             [self.objects[object_id].bbox.center for object_id in object_idxs]
         )
+        # print("[self.objects[object_id] for object_id in object_idxs]: ", [self.objects[object_id] for object_id in object_idxs])
+        # print("self.hands: ", self.hands)
         for hand_idx, hand_detection in enumerate(self.hands):
             if (
                 hand_detection.state.value == HandState.NO_CONTACT.value
@@ -305,7 +315,12 @@ class FrameDetections:
             )
             distances = ((object_centers - estimated_object_position) ** 2).sum(
                     axis=-1)
-            interactions[hand_idx] = object_idxs[cast(int, np.argmin(distances))]
+            # print("distances: ", distances)
+            # added by Arpit. To remove spurious interactions even when hand and object are much farther away!
+            if np.min(distances) < 10000:
+                interactions[hand_idx] = object_idxs[cast(int, np.argmin(distances))]
+            # interactions[hand_detection.side.value] = object_idxs[cast(int, np.argmin(distances))] 
+            # print("hand, object idxs: ", hand_detection.side, object_idxs[cast(int, np.argmin(distances))])
         return interactions
 
     def scale(self, width_factor: float = 1, height_factor: float = 1) -> None:
@@ -313,6 +328,7 @@ class FrameDetections:
         Scale the coordinates of all the hands/objects. x components are multiplied
         by the ``width_factor`` and y components by the ``height_factor``
         """
+        # print("111", self.hands)
         for det in chain(self.hands, self.objects):
             det.scale(width_factor=width_factor, height_factor=height_factor)
 

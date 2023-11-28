@@ -81,6 +81,7 @@ class DetectionRenderer:
         Returns:
             A copy of ``frame`` annotated with the detections from ``detections``.
         """
+        # print("frame, detections: ", frame, detections)
         self._img = frame.copy()
         detections = self._detections = deepcopy(detections)
         # detections.scale(
@@ -108,12 +109,16 @@ class DetectionRenderer:
         hand_object_idx_correspondences = detections.get_hand_object_interactions(
             object_threshold=self.object_threshold, hand_threshold=self.hand_threshold
         )
+        # print("hoa correspondences: ", [(detections.hands[k].side, v) for k,v in hand_object_idx_correspondences.items()])
         if not self.only_interacted_objects:
             for object in detections.objects:
                 if object.score >= self.object_threshold:
                     self._render_object(object)
 
         for hand_idx, object_idx in hand_object_idx_correspondences.items():
+            # for h in detections.hands:
+            #     if hand_idx == h.side.value:
+            #         hand = h
             hand = detections.hands[hand_idx]
             object = detections.objects[object_idx]
             if self.only_interacted_objects:
@@ -121,9 +126,9 @@ class DetectionRenderer:
                     self._render_object(object)
             self._render_hand_object_correspondence(hand, object)
 
-        for hand in detections.hands:
-            if hand.score >= self.hand_threshold:
-                self._render_hand(hand)
+        # for hand in detections.hands:
+        #     if hand.score >= self.hand_threshold:
+        #         self._render_hand(hand)
 
         return self._img
 

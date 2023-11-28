@@ -1,1 +1,4 @@
 assets
+wandb
+*.jpg
+arpit_output
